@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="mg">
+<head>
+<meta charset="UTF-8">
+<title>{{ church_name }} — Fandaharam-pivoriana Andavanandro</title>
+<style>
+  @page { size: A4 portrait; margin: 10mm 12mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: Arial, "Helvetica Neue", sans-serif;
+    color: #1a1a1a;
+    font-size: 9.5pt;
+    line-height: 1.22;
+    margin: 0;
+  }
+  .page { page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
+
+  /* ---- En-tête général de la page ---- */
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 2px double #575A5D;
+    padding-bottom: 2.5pt;
+    margin-bottom: 6pt;
+  }
+  .page-header .church-name { font-weight: 700; font-size: 10pt; }
+  .page-header .doc-title   { font-weight: 700; font-size: 14pt; font-family: Georgia, serif; }
+
+  /* ---- Bloc d'une semaine ---- */
+  .week { margin-bottom: 8pt; }
+  .week + .week { border-top: 1px solid #c9c9c9; padding-top: 6pt; }
+
+  /* Grille commune à TOUTES les lignes */
+  .line, .week-title-row {
+    display: grid;
+    grid-template-columns: 25pt 1fr 115pt 82pt 82pt;
+    column-gap: 5pt;
+    align-items: baseline;
+    padding: 1pt 0;
+  }
+  .time           { color: #575A5D; font-weight: 700; font-size: 8.5pt; }
+  .bullet-content { display: flex; gap: 3pt; }
+  .duration       { font-size: 8.5pt; }
+  .lbl            { color: #575A5D; font-weight: 700; text-align: right; font-size: 8.5pt; white-space: nowrap; }
+  .slot {
+    display: block;
+    min-height: 1.1em;
+    padding: 0 2pt;
+  }
+  /* Slot couple : "maitre / complement" sur une ligne */
+  .slot-couple::after { content: ""; }
+
+  /* ---- En-tête de semaine ---- */
+  .week-title-row { align-items: start; margin-bottom: 2pt; }
+  .week-title-row .title { font-weight: 700; font-size: 10pt; grid-column: 1 / 4; }
+  .top-fields { grid-column: 3 / 6; display: flex; flex-direction: column; gap: 1.5pt; }
+  .top-fields .field { display: flex; justify-content: flex-end; gap: 3pt; align-items: baseline; }
+  .top-fields .field label { color: #575A5D; font-weight: 700; white-space: nowrap; font-size: 8.5pt; }
+  .top-fields .field .slot { min-width: 82pt; }
+
+  /* ---- Bandeau de section ---- */
+  .bar {
+    grid-column: 1 / 4;
+    color: #fff;
+    font-weight: 700;
+    font-size: 9.5pt;
+    padding: 2pt 6pt;
+    margin: 2pt -5pt 0 0;
+  }
+  .colhead { color: #575A5D; font-weight: 700; font-size: 8.5pt; text-align: right; }
+  .sec-0 { background: #575A5D; }
+  .sec-1 { background: #BE8900; }
+  .sec-2 { background: #7E0024; }
+</style>
+</head>
+<body>
+
+{% for page_weeks in weeks_by_page %}
+<div class="page">
+
+  <div class="page-header">
+    <div class="church-name">{{ church_name }}</div>
+    <div class="doc-title">Fandaharam-pivoriana Andavanandro</div>
+  </div>
+
+  {% for week in page_weeks %}
+  <div class="week">
+
+    <div class="week-title-row">
+      <div class="title">{{ week.date_range }} | {{ week.bible_reading }}</div>
+      <div class="top-fields">
+        <div class="field"><label>Mpitari-draharaha:</label><span class="slot">{{ week.mpitari_draharaha|default('') }}</span></div>
+        <div class="field"><label>Mpanome Torohevitra Faharoa:</label><span class="slot">{{ week.mpanome_torohevitra|default('') }}</span></div>
+        <div class="field"><label>Vavaka:</label><span class="slot">{{ week.vavaka_fampidirana|default('') }}</span></div>
+      </div>
+    </div>
+
+    {% set ns = namespace(section_idx=-1, in_section='') %}
+    {% set program = week.full_ordered_program %}
+
+    {% for item in program %}
+
+      {% if loop.first %}
+        {# Hira d'ouverture #}
+        <div class="line">
+          <span class="time"></span>
+          <span class="bullet-content">• {{ item.title }}</span>
+        </div>
+        <div class="line">
+          <span class="time"></span>
+          <span class="bullet-content">• Teny Fampidirana <span class="duration">(1 min.)</span></span>
+        </div>
+
+      {% elif loop.last %}
+        {# Hira de clôture + vavaka #}
+        <div class="line">
+          <span class="time"></span>
+          <span class="bullet-content">• Teny Famaranana <span class="duration">(3 min.)</span></span>
+        </div>
+        <div class="line">
+          <span class="time"></span>
+          <span class="bullet-content">• {{ item.title }}</span>
+          <span class="lbl">Vavaka:</span>
+          <span></span>
+          <span class="slot">{{ week.vavaka_famaranana|default('') }}</span>
+        </div>
+
+      {% elif item.type == 'section' %}
+        {% set ns.section_idx = ns.section_idx + 1 %}
+        {% set ns.in_section = 'green' if ns.section_idx == 0 else ('yellow' if ns.section_idx == 1 else 'red') %}
+        {% set clean_title = item.title.split(' ', 1)[1] if item.title.split(' ', 1)|length > 1 else item.title %}
+        <div class="line">
+          <span></span>
+          <div class="bar sec-{{ ns.section_idx }}">{{ clean_title }}</div>
+          {% if ns.in_section in ['green', 'yellow'] %}
+            <span class="colhead">Efitrano Faharoa</span>
+            <span class="colhead">Efitrano Lehibe</span>
+          {% endif %}
+        </div>
+
+      {% elif item.type == 'song' %}
+        <div class="line">
+          <span class="time"></span>
+          <span class="bullet-content">• {{ item.title }}</span>
+        </div>
+
+      {% elif item.type == 'part' %}
+        <div class="line">
+          <span class="time"></span>
+          <span>{{ item.title }} <span class="duration">({{ item.duration }} min.)</span></span>
+
+          {# ── Vatosoa Ara-panahy (manuel) ── #}
+          {% if 'Vatosoa Ara-panahy' in item.title %}
+            <span class="lbl"></span>
+            <span></span>
+            <span class="slot">{{ item.assignee|default('') }}</span>
+
+          {# ── Famakiana Baiboly (part 3) — 2 salles, homme seul chacune ── #}
+          {% elif 'Famakiana Baiboly' in item.title and 'Fianarana' not in item.title %}
+              <span class="lbl">Mpianatra:</span>
+              <span class="slot">
+                  {%- if item.efitrano_faharoa is defined -%}
+                      {{ item.efitrano_faharoa.assignee }}
+                  {%- endif -%}
+              </span>
+              <span class="slot">
+                  {%- if item.efitrano_lehibe is defined -%}
+                      {{ item.efitrano_lehibe.assignee }}
+                  {%- endif -%}
+              </span>
+
+          {# ── Fianarana Baiboly (part 10) — couple d'hommes ── #}
+          {% elif 'Fianarana Baiboly' in item.title %}
+            <span class="lbl">Mpitarika/Mpamaky:</span>
+            <span></span>
+            {# CoupleAssignment : maitre / complement sur une ligne #}
+            <span class="slot">
+              {%- if item.maitre is defined and item.complement is defined -%}
+                {{ item.maitre }}/{{ item.complement }}
+              {%- else -%}
+                {{ item.assignee|default('') }}
+              {%- endif -%}
+            </span>
+
+          {# ── Lahateny (FAMPIOFANANA) — homme seul ── #}
+          {% elif ns.in_section == 'yellow' and 'Lahateny' in item.title %}
+            <span class="lbl"></span>
+            <span></span>
+            <span class="slot">{{ item.assignee|default('') }}</span>
+
+          {# ── Parts standard FAMPIOFANANA (4-7) — 2 couples unisexes ── #}
+          {% elif ns.in_section == 'yellow' %}
+            <span class="lbl">Mpianatra/Mpanampy:</span>
+            {# FampiofananaAssignment : efitrano_faharoa et efitrano_lehibe #}
+            {# Chaque salle : "maitre/complement" sur une ligne              #}
+            <span class="slot">
+              {%- if item.efitrano_faharoa is defined -%}
+                {{ item.efitrano_faharoa.maitre }}/{{ item.efitrano_faharoa.complement }}
+              {%- else -%}
+                {{ item.assignee_faharoa|default('') }}
+              {%- endif -%}
+            </span>
+            <span class="slot">
+              {%- if item.efitrano_lehibe is defined -%}
+                {{ item.efitrano_lehibe.maitre }}/{{ item.efitrano_lehibe.complement }}
+              {%- else -%}
+                {{ item.assignee_lehibe|default('') }}
+              {%- endif -%}
+            </span>
+
+          {# ── Tout le reste (parts 1/8/9, manuel) ── #}
+          {% else %}
+            <span></span>
+            <span></span>
+            <span class="slot">{{ item.assignee|default('') }}</span>
+          {% endif %}
+
+        </div>
+      {% endif %}
+
+    {% endfor %}
+
+  </div>
+  {% endfor %}
+
+</div>
+{% endfor %}
+
+</body>
+</html>

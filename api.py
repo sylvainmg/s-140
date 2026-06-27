@@ -1,0 +1,120 @@
+"""
+api.py — Backend FastAPI pour le générateur de programme S-140.
+
+Endpoints :
+  GET  /health                          → status
+  POST /parse   { url }                 → JSON du programme
+  POST /render  { program, assignments, church_name } → PDF (bytes)
+"""
+
+import tempfile
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import Response
+from pydantic import BaseModel
+
+# Réutilise les fonctions existantes
+from parse import get_week_urls, scrape_week, extract_month_label
+from render import attach_assignments, render_html, html_to_pdf
+
+app = FastAPI(title="S-140 Backend", version="1.0.0")
+
+BASE_DIR = Path(__file__).parent
+
+
+# ---------------------------------------------------------------------------
+# Schémas
+# ---------------------------------------------------------------------------
+
+class ParseRequest(BaseModel):
+    url: str  # URL de l'index mensuel jw.org
+
+
+class RenderRequest(BaseModel):
+    program: dict        # { "6-12 Jolay": { "bible_reading": ..., "full_ordered_program": [...] } }
+    assignments: dict = {}  # optionnel
+    church_name: str = "[ANARAN'NY FIANGONANA]"
+    month_label: str = ""
+
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
+@app.post("/parse")
+def parse(req: ParseRequest):
+    """Scrape jw.org et retourne le JSON du programme mensuel."""
+    try:
+        week_urls = get_week_urls(req.url)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Erreur fetch index : {e}") 
+
+    if not week_urls:
+        raise HTTPException(status_code=404, detail="Aucune semaine trouvée à cette URL.")
+
+    program = {}
+    errors = []
+    for url in week_urls:
+        try:
+            result = scrape_week(url)
+            if result:
+                week_key, data = result
+                program[week_key] = data
+        except Exception as e:
+            errors.append({"url": url, "error": str(e)})
+
+    if not program:
+        raise HTTPException(status_code=500, detail=f"Parsing échoué : {errors}")
+
+    return {"program": program, "month_label": extract_month_label(req.url) , "errors": errors}
+
+
+@app.post("/render")
+def render(req: RenderRequest):
+    """Génère le PDF A4 depuis le programme + assignments."""
+    # Convertir le dict program en liste de semaines
+    weeks = []
+    for date_range, content in req.program.items():
+        weeks.append({
+            "date_range": date_range,
+            "bible_reading": content.get("bible_reading", ""),
+            "full_ordered_program": content.get("full_ordered_program", []),
+        })
+
+    if not weeks:
+        raise HTTPException(status_code=400, detail="Le programme est vide.")
+
+    # Injecter les assignments
+    assignments = req.assignments or None
+    attach_assignments(weeks, assignments)
+
+    # Rendu HTML
+    try:
+        html = render_html(weeks, req.church_name)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur rendu HTML : {e}")
+
+    # Génération PDF
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        html_to_pdf(html, tmp_path)
+        pdf_bytes = Path(tmp_path).read_bytes()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur génération PDF : {e}")
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
+
+    filename = f"S-140-{req.month_label}.pdf" if req.month_label else "S-140.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
