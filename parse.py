@@ -1,16 +1,26 @@
-import json
 import re
 from bs4 import BeautifulSoup
 from curl_cffi import requests
-import datetime
+import curl_cffi.requests as req
+import datetime as dt
 
 OUTPUT_JSON = "real_workbook_program.json"
 
 # ── URL de la page mensuelle à scraper ──
-MONTHLY_INDEX_URL = "https://www.jw.org/mg/zavatra-misy/fivoriana-vj-tari-dalana/jolay-aogositra-2026-mwb/"
 
 BASE_URL = "https://www.jw.org"
 DURATION_RE = re.compile(r'\((\d+)\s*min\.?\)')
+
+def resolve_url(url: str) -> str:
+    """Suit les redirections et retourne l'URL finale absolue après redirection."""
+    # Utilisation d'une session avec impersonation Chrome pour éviter les blocages de sécurité
+    r = req.get(url, allow_redirects=True, impersonate="chrome", timeout=10)
+    
+    # curl_cffi stocke l'URL finale redirigée dans r.redirect_url
+    if r.redirect_url:
+        return str(r.redirect_url)
+        
+    return str(r.url)
 
 
 def find_duration(text):
@@ -186,34 +196,34 @@ def scrape_week(url):
         "bible_reading": bible_chapters,
         "full_ordered_program": ordered_schedule,
     }
-
 def extract_month_label(url: str) -> str:
-    """Extrait 'Janoary-Febroary' depuis l'URL jw.org."""
-    m = re.search(r'/([a-z]+-[a-z]+-\d{4})-mwb/', url, re.IGNORECASE)
+    """Extrait le mois et l'année (ex: 'Mey-Jona 2026') depuis l'URL jw.org."""
+    # 1. Résolution de l'URL courte / finder pour obtenir le lien complet
+    if "finder" in url:
+        try:
+            url = resolve_url(url)
+        except Exception as e:
+            print(f"⚠️ Échec de résolution de l'URL finder : {e}")
+
+    # 2. Extraction via la Regex sur l'URL finale (ex: .../jolay-aogositra-2026-mwb/)
+    m = re.search(r'/([a-z0-9-]+)-mwb/', url, re.IGNORECASE)
     if m:
-        parts = m.group(1).rsplit('-', 1)  # ['janoary-febroary', '2026']
-        return parts[0].title()  # 'Janoary-Febroary'
-    return datetime.now().strftime('%Y%m')
-
-def main():
-    week_urls = get_week_urls(MONTHLY_INDEX_URL)
-    if not week_urls:
-        print("No week URLs found. Exiting.")
-        return
-
-    all_data = {}
-    for url in week_urls:
-        result = scrape_week(url)
-        if result:
-            week_key, data = result
-            all_data[week_key] = data
-
-    with open(OUTPUT_JSON, "w", encoding="utf-8") as f:
-        json.dump(all_data, f, ensure_ascii=False, indent=4)
-
-    print(f"\n✨ Done! {len(all_data)} week(s) saved to '{OUTPUT_JSON}'")
-    print(json.dumps(all_data, ensure_ascii=False, indent=2))
-
-
-if __name__ == "__main__":
-    main()
+        try:
+            raw_string = m.group(1) # ex: 'jolay-aogositra-2026' ou 'mey-jona-2026'
+            
+            # Extraction des 4 chiffres de l'année à la fin
+            year_match = re.search(r'(\d{4})$', raw_string)
+            year = year_match.group(1) if year_match else dt.datetime.now().strftime('%Y')
+            
+            # Nettoyage de la partie mois (on retire '-2026')
+            just_months = re.sub(r'-\d{4}$', '', raw_string) # ex: 'jolay-aogositra'
+            
+            # Capitalise chaque mot des mois et ajoute l'année au bout
+            formatted_months = "-".join(word.capitalize() for word in just_months.split("-"))
+            return f"{formatted_months} {year}" # Renvoie 'Jolay-Aogositra 2026'
+            
+        except Exception as e:
+            print(f"⚠️ Erreur formatage regex : {e}")
+            
+    # 3. Fallback textuel en cas d'échec complet
+    return dt.datetime.now().strftime('%Y%m')

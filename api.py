@@ -15,7 +15,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 # Réutilise les fonctions existantes
-from parse import get_week_urls, scrape_week, extract_month_label
+from parse import get_week_urls, scrape_week, extract_month_label, resolve_url
 from render import attach_assignments, render_html, html_to_pdf
 
 app = FastAPI(title="S-140 Backend", version="1.0.0")
@@ -51,9 +51,10 @@ def health():
 def parse(req: ParseRequest):
     """Scrape jw.org et retourne le JSON du programme mensuel."""
     try:
-        week_urls = get_week_urls(req.url)
+        resolved = resolve_url(req.url)
+        week_urls = get_week_urls(resolved)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Erreur fetch index : {e}") 
+        raise HTTPException(status_code=502, detail=f"Erreur fetch index : {e}")
 
     if not week_urls:
         raise HTTPException(status_code=404, detail="Aucune semaine trouvée à cette URL.")
@@ -72,8 +73,7 @@ def parse(req: ParseRequest):
     if not program:
         raise HTTPException(status_code=500, detail=f"Parsing échoué : {errors}")
 
-    return {"program": program, "month_label": extract_month_label(req.url) , "errors": errors}
-
+    return {"program": program, "month_label": extract_month_label(resolved), "errors": errors}
 
 @app.post("/render")
 def render(req: RenderRequest):
