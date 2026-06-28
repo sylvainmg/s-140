@@ -162,12 +162,12 @@
               <span class="lbl">Mpianatra:</span>
               <span class="slot">
                   {%- if item.efitrano_faharoa is defined -%}
-                      {{ item.efitrano_faharoa.assignee }}
+                      {{ item.efitrano_faharoa.maitre }}
                   {%- endif -%}
               </span>
               <span class="slot">
                   {%- if item.efitrano_lehibe is defined -%}
-                      {{ item.efitrano_lehibe.assignee }}
+                      {{ item.efitrano_lehibe.maitre }}
                   {%- endif -%}
               </span>
 
@@ -184,27 +184,29 @@
               {%- endif -%}
             </span>
 
-          {# ── Lahateny (FAMPIOFANANA) — homme seul ── #}
+          {# ── Lahateny (FAMPIOFANANA) — homme seul par salle ── #}
           {% elif ns.in_section == 'yellow' and 'Lahateny' in item.title %}
-            <span class="lbl">Mpianatra</span>
-            <span></span>
-            <span class="slot">{{ item.assignee|default('') }}</span>
+            <span class="lbl">Mpianatra:</span>
+            <span class="slot">
+              {%- if item.efitrano_faharoa is defined -%}{{ item.efitrano_faharoa.maitre }}{%- endif -%}
+            </span>
+            <span class="slot">
+              {%- if item.efitrano_lehibe is defined -%}{{ item.efitrano_lehibe.maitre }}{%- endif -%}
+            </span>
 
           {# ── Parts standard FAMPIOFANANA (4-7) — 2 couples unisexes ── #}
           {% elif ns.in_section == 'yellow' %}
             <span class="lbl">Mpianatra/Mpanampy:</span>
-            {# FampiofananaAssignment : efitrano_faharoa et efitrano_lehibe #}
-            {# Chaque salle : "maitre/complement" sur une ligne              #}
             <span class="slot">
               {%- if item.efitrano_faharoa is defined -%}
-                {{ item.efitrano_faharoa.maitre }}/{{ item.efitrano_faharoa.complement }}
+                {{ item.efitrano_faharoa.maitre }}{% if item.efitrano_faharoa.complement %}/{{ item.efitrano_faharoa.complement }}{% endif %}
               {%- else -%}
                 {{ item.assignee_faharoa|default('') }}
               {%- endif -%}
             </span>
             <span class="slot">
               {%- if item.efitrano_lehibe is defined -%}
-                {{ item.efitrano_lehibe.maitre }}/{{ item.efitrano_lehibe.complement }}
+                {{ item.efitrano_lehibe.maitre }}{% if item.efitrano_lehibe.complement %}/{{ item.efitrano_lehibe.complement }}{% endif %}
               {%- else -%}
                 {{ item.assignee_lehibe|default('') }}
               {%- endif -%}
