@@ -159,7 +159,7 @@ python render.py data/sample_month.json output/programme.pdf "Fiangonana Ankadif
 
 ## API overview
 
-### `HEAD /health`
+### `GET /health`
 
 Health check endpoint.
 
