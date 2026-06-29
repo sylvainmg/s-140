@@ -49,7 +49,7 @@
     min-height: 1.1em;
     padding: 0 2pt;
   }
-  /* Slot couple : "maitre / complement" sur une ligne */
+  /* Slot couple : "etudiant / complement" sur une ligne */
   .slot-couple::after { content: ""; }
 
   /* ---- En-tête de semaine ---- */
@@ -162,12 +162,12 @@
               <span class="lbl">Mpianatra:</span>
               <span class="slot">
                   {%- if item.efitrano_faharoa is defined -%}
-                      {{ item.efitrano_faharoa.maitre }}
+                      {{ item.efitrano_faharoa.etudiant }}
                   {%- endif -%}
               </span>
               <span class="slot">
                   {%- if item.efitrano_lehibe is defined -%}
-                      {{ item.efitrano_lehibe.maitre }}
+                      {{ item.efitrano_lehibe.etudiant }}
                   {%- endif -%}
               </span>
 
@@ -175,10 +175,10 @@
           {% elif 'Fianarana Baiboly' in item.title %}
             <span class="lbl">Mpitarika/Mpamaky:</span>
             <span></span>
-            {# CoupleAssignment : maitre / complement sur une ligne #}
+            {# CoupleAssignment : etudiant / complement sur une ligne #}
             <span class="slot">
-              {%- if item.maitre is defined and item.complement is defined -%}
-                {{ item.maitre }}/{{ item.complement }}
+              {%- if item.etudiant is defined and item.complement is defined -%}
+                {{ item.etudiant }}/{{ item.complement }}
               {%- else -%}
                 {{ item.assignee|default('') }}
               {%- endif -%}
@@ -188,10 +188,10 @@
           {% elif ns.in_section == 'yellow' and 'Lahateny' in item.title %}
             <span class="lbl">Mpianatra:</span>
             <span class="slot">
-              {%- if item.efitrano_faharoa is defined -%}{{ item.efitrano_faharoa.maitre }}{%- endif -%}
+              {%- if item.efitrano_faharoa is defined -%}{{ item.efitrano_faharoa.etudiant }}{%- endif -%}
             </span>
             <span class="slot">
-              {%- if item.efitrano_lehibe is defined -%}{{ item.efitrano_lehibe.maitre }}{%- endif -%}
+              {%- if item.efitrano_lehibe is defined -%}{{ item.efitrano_lehibe.etudiant }}{%- endif -%}
             </span>
 
           {# ── Parts standard FAMPIOFANANA (4-7) — 2 couples unisexes ── #}
@@ -199,14 +199,14 @@
             <span class="lbl">Mpianatra/Mpanampy:</span>
             <span class="slot">
               {%- if item.efitrano_faharoa is defined -%}
-                {{ item.efitrano_faharoa.maitre }}{% if item.efitrano_faharoa.complement %}/{{ item.efitrano_faharoa.complement }}{% endif %}
+                {{ item.efitrano_faharoa.etudiant }}{% if item.efitrano_faharoa.complement %}/{{ item.efitrano_faharoa.complement }}{% endif %}
               {%- else -%}
                 {{ item.assignee_faharoa|default('') }}
               {%- endif -%}
             </span>
             <span class="slot">
               {%- if item.efitrano_lehibe is defined -%}
-                {{ item.efitrano_lehibe.maitre }}{% if item.efitrano_lehibe.complement %}/{{ item.efitrano_lehibe.complement }}{% endif %}
+                {{ item.efitrano_lehibe.etudiant }}{% if item.efitrano_lehibe.complement %}/{{ item.efitrano_lehibe.complement }}{% endif %}
               {%- else -%}
                 {{ item.assignee_lehibe|default('') }}
               {%- endif -%}

@@ -1,12 +1,8 @@
-"""
-api.py — Backend FastAPI pour le générateur de programme S-140.
+"""FastAPI backend for the S-140 weekly program generator.
 
-Endpoints :
-  GET  /health                          → status
-  POST /parse   { url }                 → JSON du programme
-  POST /render  { program, assignments, church_name } → PDF (bytes)
+Scrapes jw.org monthly program data and renders it as an A4 PDF
+with congregation assignment support.
 """
-
 import tempfile
 from pathlib import Path
 
@@ -14,7 +10,6 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-# Réutilise les fonctions existantes
 from parse import get_week_urls, scrape_week, extract_month_label, resolve_url
 from render import attach_assignments, render_html, html_to_pdf
 
@@ -27,12 +22,13 @@ BASE_DIR = Path(__file__).parent
 # Schémas
 # ---------------------------------------------------------------------------
 
+
 class ParseRequest(BaseModel):
-    url: str  # URL de l'index mensuel jw.org
+    url: str  # URL de l'index mensuel S-140 de jw.org
 
 
 class RenderRequest(BaseModel):
-    program: dict        # { "6-12 Jolay": { "bible_reading": ..., "full_ordered_program": [...] } }
+    program: dict  # { "6-12 Jolay": { "bible_reading": ..., "full_ordered_program": [...] } }
     assignments: dict = {}  # optionnel
     church_name: str = "[ANARAN'NY FIANGONANA]"
     month_label: str = ""
@@ -42,6 +38,7 @@ class RenderRequest(BaseModel):
 # Endpoints
 # ---------------------------------------------------------------------------
 
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -49,7 +46,6 @@ def health():
 
 @app.post("/parse")
 def parse(req: ParseRequest):
-    """Scrape jw.org et retourne le JSON du programme mensuel."""
     try:
         resolved = resolve_url(req.url)
         week_urls = get_week_urls(resolved)
@@ -57,10 +53,12 @@ def parse(req: ParseRequest):
         raise HTTPException(status_code=502, detail=f"Erreur fetch index : {e}")
 
     if not week_urls:
-        raise HTTPException(status_code=404, detail="Aucune semaine trouvée à cette URL.")
+        raise HTTPException(
+            status_code=404, detail="Aucune semaine trouvée à cette URL."
+        )
 
-    program = {}
-    errors = []
+    program: dict = {}
+    errors: list[dict] = []
     for url in week_urls:
         try:
             result = scrape_week(url)
@@ -73,34 +71,34 @@ def parse(req: ParseRequest):
     if not program:
         raise HTTPException(status_code=500, detail=f"Parsing échoué : {errors}")
 
-    return {"program": program, "month_label": extract_month_label(resolved), "errors": errors}
+    return {
+        "program": program,
+        "month_label": extract_month_label(resolved),
+        "errors": errors,
+    }
+
 
 @app.post("/render")
 def render(req: RenderRequest):
-    """Génère le PDF A4 depuis le programme + assignments."""
-    # Convertir le dict program en liste de semaines
-    weeks = []
+    weeks: list[dict] = []
     for date_range, content in req.program.items():
-        weeks.append({
-            "date_range": date_range,
-            "bible_reading": content.get("bible_reading", ""),
-            "full_ordered_program": content.get("full_ordered_program", []),
-        })
+        weeks.append(
+            {
+                "date_range": date_range,
+                "bible_reading": content.get("bible_reading", ""),
+                "full_ordered_program": content.get("full_ordered_program", []),
+            }
+        )
 
     if not weeks:
         raise HTTPException(status_code=400, detail="Le programme est vide.")
 
-    # Injecter les assignments
-    assignments = req.assignments or None
-    attach_assignments(weeks, assignments)
-
-    # Rendu HTML
+    attach_assignments(weeks, req.assignments or None)
     try:
         html = render_html(weeks, req.church_name)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur rendu HTML : {e}")
 
-    # Génération PDF
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
         tmp_path = tmp.name
 
@@ -118,3 +116,4 @@ def render(req: RenderRequest):
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
