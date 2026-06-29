@@ -161,6 +161,8 @@ python render.py data/sample_month.json output/programme.pdf "Fiangonana Ankadif
 
 ### `GET /health`
 
+### `HEAD /health`
+
 Health check endpoint.
 
 **Response**
@@ -292,6 +294,6 @@ This project fetches data from jw.org, a third-party website. Please ensure your
 
 ## Repository
 
-- **Source**: [github.com/<org>/<repo>](https://github.com/<org>/<repo>)
-- **Issues**: [github.com/<org>/<repo>/issues](https://github.com/<org>/<repo>/issues)
+- **Source**: [github.com/<org>/<repo>](https://github.com/sylvainmg/s-140)
+- **Issues**: [github.com/sylvainmg/s-140/issues](https://github.com/sylvainmg/s-140/issues)
 - **API docs**: Available at `/docs` when the server is running (Swagger UI).
