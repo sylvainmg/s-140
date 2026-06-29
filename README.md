@@ -25,11 +25,11 @@ It does **not** manage members, assignments, or any congregation-side data — t
 ## Architecture
 
 ```
-┌──────────────┐      POST /parse       ┌──────────────┐
-│  Mobile App  │ ──────────────────────► │              │
-│  (client)    │ ◄────────────────────── │  FastAPI     │
-│              │      POST /render        │  Backend     │
-└──────────────┘                        │              │
+┌──────────────┐      POST /parse       ┌───────────────┐
+│  Mobile App  │ ──────────────────────►│               │
+│  (client)    │ ◄──────────────────────│  FastAPI      │
+│              │      POST /render      │  Backend      │
+└──────────────┘                        │               │
                                         │  ┌──────────┐ │
                                         │  │  parse   │ │
                                         │  │  module  │ │
@@ -38,7 +38,7 @@ It does **not** manage members, assignments, or any congregation-side data — t
                                         │  │  render  │ │
                                         │  │  module  │ │
                                         │  └──────────┘ │
-                                        └──────────────┘
+                                        └───────────────┘
                                                │
                                                ▼
                                         ┌──────────────┐
@@ -50,16 +50,16 @@ It does **not** manage members, assignments, or any congregation-side data — t
 ### Request flow
 
 1. **Parse** — The client sends a monthly program index URL from jw.org to `POST /parse`.
-   - The backend resolves any redirect URLs.
-   - It extracts the weekly sub-page URLs from the index.
-   - Each weekly page is fetched and parsed into structured data (section headers, songs, parts, durations, Bible reading).
-   - The structured program and a month label are returned.
+    - The backend resolves any redirect URLs.
+    - It extracts the weekly sub-page URLs from the index.
+    - Each weekly page is fetched and parsed into structured data (section headers, songs, parts, durations, Bible reading).
+    - The structured program and a month label are returned.
 
 2. **Render** — The client sends the parsed program (plus optional assignments) to `POST /render`.
-   - Assignments are injected into the program data if provided.
-   - A Jinja2 HTML template renders the two-weeks-per-page A4 layout.
-   - The HTML is converted to PDF via the best-available backend (Playwright → wkhtmltopdf → xhtml2pdf).
-   - The PDF is returned as a downloadable attachment.
+    - Assignments are injected into the program data if provided.
+    - A Jinja2 HTML template renders the two-weeks-per-page A4 layout.
+    - The HTML is converted to PDF via the best-available backend (Playwright → wkhtmltopdf → xhtml2pdf).
+    - The PDF is returned as a downloadable attachment.
 
 ## Project structure
 
@@ -76,23 +76,23 @@ It does **not** manage members, assignments, or any congregation-side data — t
 
 ### Module responsibilities
 
-| File | Responsibility |
-|---|---|
-| `api.py` | FastAPI app, request/response schemas, endpoint logic |
-| `parse.py` | URL resolution, HTML scraping, section detection, title/duration normalization |
-| `render.py` | Data loading, assignment injection, Jinja2 rendering, HTML→PDF conversion, CLI entry point |
-| `template.html.j2` | HTML layout with CSS for print-ready A4 output |
+| File               | Responsibility                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------ |
+| `api.py`           | FastAPI app, request/response schemas, endpoint logic                                      |
+| `parse.py`         | URL resolution, HTML scraping, section detection, title/duration normalization             |
+| `render.py`        | Data loading, assignment injection, Jinja2 rendering, HTML→PDF conversion, CLI entry point |
+| `template.html.j2` | HTML layout with CSS for print-ready A4 output                                             |
 
 ## Technology stack
 
-| Category | Tools |
-|---|---|
-| Framework | [FastAPI](https://fastapi.tiangolo.com/) 0.138, [Pydantic](https://docs.pydantic.dev/) 2.13 |
-| Server | [uvicorn](https://www.uvicorn.org/) 0.49 |
-| Scraping | [curl_cffi](https://github.com/lexiforest/curl_cffi) 0.15, [BeautifulSoup4](https://www.crummy.com/software/BeautifulSoup/) 4.15 |
-| Templating | [Jinja2](https://jinja.palletsprojects.com/) 3.1 |
-| PDF rendering | [Playwright](https://playwright.dev/) (recommended), wkhtmltopdf, xhtml2pdf (fallbacks) |
-| Container | Docker (Python 3.11 slim base) |
+| Category      | Tools                                                                                                                            |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Framework     | [FastAPI](https://fastapi.tiangolo.com/) 0.138, [Pydantic](https://docs.pydantic.dev/) 2.13                                      |
+| Server        | [uvicorn](https://www.uvicorn.org/) 0.49                                                                                         |
+| Scraping      | [curl_cffi](https://github.com/lexiforest/curl_cffi) 0.15, [BeautifulSoup4](https://www.crummy.com/software/BeautifulSoup/) 4.15 |
+| Templating    | [Jinja2](https://jinja.palletsprojects.com/) 3.1                                                                                 |
+| PDF rendering | [Playwright](https://playwright.dev/) (recommended), wkhtmltopdf, xhtml2pdf (fallbacks)                                          |
+| Container     | Docker (Python 3.11 slim base)                                                                                                   |
 
 ## Installation
 
@@ -177,8 +177,8 @@ Scrapes a monthly program index from jw.org and returns structured weekly data.
 
 **Request body** (`ParseRequest`)
 
-| Field | Type | Description |
-|---|---|---|
+| Field | Type  | Description                                      |
+| ----- | ----- | ------------------------------------------------ |
 | `url` | `str` | URL of the monthly S-140 program index on jw.org |
 
 **Response** (200)
@@ -203,11 +203,11 @@ Scrapes a monthly program index from jw.org and returns structured weekly data.
 
 **Error responses**
 
-| Status | Meaning |
-|---|---|
-| 404 | No weekly programs found at the given URL |
-| 502 | Failed to fetch or resolve the index URL |
-| 500 | Parsing failed for all weeks |
+| Status | Meaning                                   |
+| ------ | ----------------------------------------- |
+| 404    | No weekly programs found at the given URL |
+| 502    | Failed to fetch or resolve the index URL  |
+| 500    | Parsing failed for all weeks              |
 
 ---
 
@@ -217,12 +217,12 @@ Renders a parsed program (with optional assignments) as a PDF.
 
 **Request body** (`RenderRequest`)
 
-| Field | Type | Description |
-|---|---|---|
-| `program` | `dict` | The `program` object from `/parse` (week keys → structured data) |
-| `assignments` | `dict`, optional | Congregation assignment data (see below) |
-| `church_name` | `str` | Name of the congregation (default: `"[ANARAN'NY FIANGONANA]"`) |
-| `month_label` | `str` | Month/year label used in the PDF filename |
+| Field         | Type             | Description                                                      |
+| ------------- | ---------------- | ---------------------------------------------------------------- |
+| `program`     | `dict`           | The `program` object from `/parse` (week keys → structured data) |
+| `assignments` | `dict`, optional | Congregation assignment data (see below)                         |
+| `church_name` | `str`            | Name of the congregation (default: `"[ANARAN'NY FIANGONANA]"`)   |
+| `month_label` | `str`            | Month/year label used in the PDF filename                        |
 
 **Assignments structure (optional)**
 
@@ -250,28 +250,28 @@ Renders a parsed program (with optional assignments) as a PDF.
 
 **Error responses**
 
-| Status | Meaning |
-|---|---|
-| 400 | Empty program |
-| 500 | HTML rendering or PDF generation failure |
+| Status | Meaning                                  |
+| ------ | ---------------------------------------- |
+| 400    | Empty program                            |
+| 500    | HTML rendering or PDF generation failure |
 
 ## Development workflow
 
 1. **Make changes** to `api.py`, `parse.py`, `render.py`, or `template.html.j2`.
 2. **Run the dev server**:
-   ```bash
-   uvicorn api:app --reload
-   ```
+    ```bash
+    uvicorn api:app --reload
+    ```
 3. **Test endpoints** using `http://localhost:8000/docs` (Swagger UI) or `http://localhost:8000/redoc` (ReDoc).
 4. **Run the CLI** for offline rendering tests:
-   ```bash
-   python render.py data/sample_month.json output/test.pdf
-   ```
+    ```bash
+    python render.py data/sample_month.json output/test.pdf
+    ```
 5. **Build and test the Docker image**:
-   ```bash
-   docker build -t s140-backend .
-   docker run --rm -p 8000:8000 s140-backend
-   ```
+    ```bash
+    docker build -t s140-backend .
+    docker run --rm -p 8000:8000 s140-backend
+    ```
 
 ## Contributing
 
