@@ -190,10 +190,9 @@ def scrape_week(url: str) -> tuple[str, dict] | None:
 
     # ── 3. Structuration du programme ──
     SECTION_MAP = [
-        ("harena avy ao", "🟢 HARENA AVY AO AMIN'NY TENIN'ANDRIAMANITRA"),
-        ("fampiofanana amin", "🟡 FAMPIOFANANA AMIN'NY FANOMPOANA"),
-        ("mieza hahasahy", "🟡 FAMPIOFANANA AMIN'NY FANOMPOANA"),
-        ("ny fiainantsika kristianina", "🔴 NY FIAINANTSIKA KRISTIANINA"),
+        ("harena avy ao", "HARENA AVY AO AMIN'NY TENIN'ANDRIAMANITRA"),
+        ("fampiofanana amin", "FAMPIOFANANA AMIN'NY FANOMPOANA"),
+        ("ny fiainantsika kristianina", "NY FIAINANTSIKA KRISTIANINA"),
     ]
 
     ordered_schedule = []
