@@ -192,7 +192,6 @@ def scrape_week(url: str) -> tuple[str, dict] | None:
     SECTION_MAP = [
         ("harena avy ao", "HARENA AVY AO AMIN'NY TENIN'ANDRIAMANITRA"),
         ("fampiofanana amin", "FAMPIOFANANA AMIN'NY FANOMPOANA"),
-        ("mieza hahasahy", "FAMPIOFANANA AMIN'NY FANOMPOANA"),
         ("ny fiainantsika kristianina", "NY FIAINANTSIKA KRISTIANINA"),
     ]
 
@@ -215,7 +214,7 @@ def scrape_week(url: str) -> tuple[str, dict] | None:
         if tag.name == "h2":
             for kw, label in SECTION_MAP:
                 if kw in raw_lower:
-                    if label == "🔴 NY FIAINANTSIKA KRISTIANINA":
+                    if label == "NY FIAINANTSIKA KRISTIANINA":
                         if found_living:
                             break
                         found_living = True
@@ -257,7 +256,7 @@ def scrape_week(url: str) -> tuple[str, dict] | None:
         ):
             duration = None
             if not found_living and len(ordered_schedule) > 3:
-                label = "🔴 NY FIAINANTSIKA KRISTIANINA"
+                label = "NY FIAINANTSIKA KRISTIANINA"
                 if not ordered_schedule or ordered_schedule[-1].get("title") != label:
                     ordered_schedule.append(
                         {"type": "section", "title": label, "duration": None}
