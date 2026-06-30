@@ -294,6 +294,6 @@ This project fetches data from jw.org, a third-party website. Please ensure your
 
 ## Repository
 
-- **Source**: [github.com/<org>/<repo>](https://github.com/sylvainmg/s-140)
+- **Source**: [github.com/sylvainmg/s-140](https://github.com/sylvainmg/s-140)
 - **Issues**: [github.com/sylvainmg/s-140/issues](https://github.com/sylvainmg/s-140/issues)
 - **API docs**: Available at `/docs` when the server is running (Swagger UI).
