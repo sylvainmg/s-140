@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 from curl_cffi import requests
 import curl_cffi.requests as req
 import datetime as dt
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 # ── Configuration ──
@@ -332,3 +333,17 @@ def extract_month_label(url: str) -> str:
 
     # 3. Fallback
     return dt.datetime.now().strftime("%Y%m")
+
+def scrape_all_weeks(index_url: str, max_workers: int = 6):
+    week_urls = get_week_urls(index_url)
+    results = []
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(scrape_week, url) for url in week_urls]
+
+        for f in as_completed(futures):
+            r = f.result()
+            if r:
+                results.append(r)
+
+    return results

@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from parse import get_week_urls, scrape_week, extract_month_label, resolve_url
 from render import attach_assignments, render_html, html_to_pdf
@@ -60,14 +61,19 @@ def parse(req: ParseRequest):
 
     program: dict = {}
     errors: list[dict] = []
-    for url in week_urls:
-        try:
-            result = scrape_week(url)
-            if result:
-                week_key, data = result
-                program[week_key] = data
-        except Exception as e:
-            errors.append({"url": url, "error": str(e)})
+
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        futures = {executor.submit(scrape_week, url): url for url in week_urls}
+
+        for future in as_completed(futures):
+            url = futures[future]
+            try:
+                result = future.result()
+                if result:
+                    week_key, data = result
+                    program[week_key] = data
+            except Exception as e:
+                errors.append({"url": url, "error": str(e)})
 
     if not program:
         raise HTTPException(status_code=500, detail=f"Parsing échoué : {errors}")
