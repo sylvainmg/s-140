@@ -192,6 +192,7 @@ def scrape_week(url: str) -> tuple[str, dict] | None:
     SECTION_MAP = [
         ("harena avy ao", "HARENA AVY AO AMIN'NY TENIN'ANDRIAMANITRA"),
         ("fampiofanana amin", "FAMPIOFANANA AMIN'NY FANOMPOANA"),
+        ("mieza hahasahy", "FAMPIOFANANA AMIN'NY FANOMPOANA"),
         ("ny fiainantsika kristianina", "NY FIAINANTSIKA KRISTIANINA"),
     ]
 
