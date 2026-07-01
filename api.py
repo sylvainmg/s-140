@@ -3,6 +3,16 @@
 Scrapes jw.org monthly program data and renders it as an A4 PDF
 with congregation assignment support.
 """
+import sys
+import asyncio
+
+# Fix Windows : uvicorn peut forcer SelectorEventLoop, qui ne supporte pas
+# create_subprocess_exec (nécessaire à Playwright pour lancer Chromium).
+# Sans ça, le navigateur persistant échoue au démarrage en local sous Windows
+# (pas un problème en prod sur Render/Linux).
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
 import tempfile
 import time
 from contextlib import asynccontextmanager
@@ -104,7 +114,7 @@ def parse(req: ParseRequest):
             status_code=404, detail="Aucune semaine trouvée à cette URL."
         )
 
-    program: dict = {}
+    results_by_url: dict = {}
     errors: list[dict] = []
 
     with ThreadPoolExecutor(max_workers=6) as executor:
@@ -115,10 +125,18 @@ def parse(req: ParseRequest):
             try:
                 result = future.result()
                 if result:
-                    week_key, data = result
-                    program[week_key] = data
+                    results_by_url[url] = result
             except Exception as e:
                 errors.append({"url": url, "error": str(e)})
+
+    # Reconstruction dans l'ordre chronologique de week_urls : le scraping
+    # tourne en parallèle, donc les résultats arrivent dans un ordre variable
+    # (le plus rapide en premier), pas forcément l'ordre des semaines.
+    program: dict = {}
+    for url in week_urls:
+        if url in results_by_url:
+            week_key, data = results_by_url[url]
+            program[week_key] = data
     t2 = time.perf_counter()
 
     print(
