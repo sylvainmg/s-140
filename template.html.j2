@@ -130,7 +130,7 @@
       {% elif item.type == 'section' %}
         {% set ns.section_idx = ns.section_idx + 1 %}
         {% set ns.in_section = 'green' if ns.section_idx == 0 else ('yellow' if ns.section_idx == 1 else 'red') %}
-        {% set clean_title = item.title.split(' ', 1)[1] if item.title.split(' ', 1)|length > 1 else item.title %}
+        {% set clean_title = item.title | strip_leading_number %}
         <div class="line">
           <span></span>
           <div class="bar sec-{{ ns.section_idx }}">{{ clean_title }}</div>
