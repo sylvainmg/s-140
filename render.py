@@ -10,6 +10,7 @@ Usage CLI :
 """
 
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -21,6 +22,17 @@ from jinja2 import Environment, FileSystemLoader
 # ── Configuration ──
 TEMPLATE_DIR = Path(__file__).parent
 TEMPLATE_NAME = "template.html.j2"
+
+# Certains titres de section commencent par un numéro d'ordre ("1. ", "2. ...")
+# qu'on veut retirer pour l'affichage du bandeau ; d'autres n'en ont pas et
+# doivent rester intacts. On ne coupe donc que si ce préfixe numérique existe
+# réellement, plutôt que de couper aveuglément le premier mot.
+_LEADING_NUMBER_RE = re.compile(r"^\d+\.\s*")
+
+
+def strip_leading_number(title: str) -> str:
+    """Retire un préfixe numéroté ('1. ', '2. ', ...) s'il est présent en tête du titre."""
+    return _LEADING_NUMBER_RE.sub("", title, count=1)
 
 
 # ── Chargement & Structuration des Données ──
@@ -130,6 +142,7 @@ def render_html(weeks: list[dict], church_name: str) -> str:
         str: Contenu HTML complet.
     """
     env = Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)))
+    env.filters["strip_leading_number"] = strip_leading_number
     template = env.get_template(TEMPLATE_NAME)
     return template.render(church_name=church_name, weeks_by_page=chunk(weeks, 2))
 
