@@ -7,6 +7,9 @@ pydantic==2.13.4
 curl_cffi==0.15.0
 beautifulsoup4==4.15.0
 
+# Cache mémoire (TTL) pour /parse
+cachetools==5.5.0
+
 # HTML templating & PDF rendering
 Jinja2==3.1.6
 playwright==1.60.0

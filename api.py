@@ -4,19 +4,57 @@ Scrapes jw.org monthly program data and renders it as an A4 PDF
 with congregation assignment support.
 """
 import tempfile
+import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 
+from cachetools import TTLCache
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from parse import get_week_urls, scrape_week, extract_month_label, resolve_url
-from render import attach_assignments, render_html, html_to_pdf
-
-app = FastAPI(title="S-140 Backend", version="1.0.0")
+from render import attach_assignments, render_html, html_to_pdf, render_pdf_async
 
 BASE_DIR = Path(__file__).parent
+
+# Cache en mémoire : le programme d'un mois donné ne change pas une fois publié
+# sur jw.org. Clé = URL soumise par le client, TTL de 6h.
+_parse_cache: TTLCache = TTLCache(maxsize=50, ttl=6 * 3600)
+
+# Navigateur Playwright persistant, partagé entre toutes les requêtes /render.
+# Lancé une seule fois au démarrage pour éviter le coût de démarrage de
+# Chromium (~1-2s) à chaque appel. Si l'initialisation échoue (Playwright non
+# installé, etc.), on retombe sur l'ancienne méthode (navigateur relancé à
+# chaque requête) plutôt que de planter le serveur entier.
+_playwright = None
+_browser = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global _playwright, _browser
+    try:
+        from playwright.async_api import async_playwright
+
+        _playwright = await async_playwright().start()
+        _browser = await _playwright.chromium.launch()
+        print("[startup] Navigateur Playwright persistant démarré.")
+    except Exception as e:
+        print(f"[startup] ⚠️ Playwright persistant indisponible ({e}) — fallback par requête.")
+        _playwright = None
+        _browser = None
+
+    yield
+
+    if _browser is not None:
+        await _browser.close()
+    if _playwright is not None:
+        await _playwright.stop()
+
+
+app = FastAPI(title="S-140 Backend", version="1.0.0", lifespan=lifespan)
 
 
 # ---------------------------------------------------------------------------
@@ -48,11 +86,18 @@ def health():
 
 @app.post("/parse")
 def parse(req: ParseRequest):
+    cached = _parse_cache.get(req.url)
+    if cached is not None:
+        print(f"[/parse] cache hit -> {req.url}")
+        return cached
+
+    t0 = time.perf_counter()
     try:
         resolved = resolve_url(req.url)
         week_urls = get_week_urls(resolved)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Erreur fetch index : {e}")
+    t1 = time.perf_counter()
 
     if not week_urls:
         raise HTTPException(
@@ -74,19 +119,28 @@ def parse(req: ParseRequest):
                     program[week_key] = data
             except Exception as e:
                 errors.append({"url": url, "error": str(e)})
+    t2 = time.perf_counter()
+
+    print(
+        f"[/parse] resolve+index={t1 - t0:.2f}s "
+        f"scrape({len(week_urls)} semaines)={t2 - t1:.2f}s "
+        f"total={t2 - t0:.2f}s"
+    )
 
     if not program:
         raise HTTPException(status_code=500, detail=f"Parsing échoué : {errors}")
 
-    return {
+    result = {
         "program": program,
         "month_label": extract_month_label(resolved),
         "errors": errors,
     }
+    _parse_cache[req.url] = result
+    return result
 
 
 @app.post("/render")
-def render(req: RenderRequest):
+async def render(req: RenderRequest):
     weeks: list[dict] = []
     for date_range, content in req.program.items():
         weeks.append(
@@ -106,16 +160,25 @@ def render(req: RenderRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur rendu HTML : {e}")
 
-    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-        tmp_path = tmp.name
-
+    t0 = time.perf_counter()
     try:
-        html_to_pdf(html, tmp_path)
-        pdf_bytes = Path(tmp_path).read_bytes()
+        if _browser is not None:
+            # Chemin rapide : navigateur persistant, tout en mémoire.
+            pdf_bytes = await render_pdf_async(_browser, html)
+        else:
+            # Fallback : ancienne méthode (relance un navigateur, passe par le
+            # disque). Ne devrait arriver que si le lifespan a échoué au démarrage.
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+                tmp_path = tmp.name
+            try:
+                html_to_pdf(html, tmp_path)
+                pdf_bytes = Path(tmp_path).read_bytes()
+            finally:
+                Path(tmp_path).unlink(missing_ok=True)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur génération PDF : {e}")
-    finally:
-        Path(tmp_path).unlink(missing_ok=True)
+    t1 = time.perf_counter()
+    print(f"[/render] pdf={t1 - t0:.2f}s (browser persistant={_browser is not None})")
 
     filename = f"S-140-{req.month_label}.pdf" if req.month_label else "S-140.pdf"
     return Response(
@@ -123,4 +186,3 @@ def render(req: RenderRequest):
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
-

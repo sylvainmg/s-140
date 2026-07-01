@@ -6,8 +6,8 @@ Usage : Orchestrer le scraping via get_week_urls() puis scrape_week(). Les donn�
 """
 
 import re
+import threading
 from bs4 import BeautifulSoup
-from curl_cffi import requests
 import curl_cffi.requests as req
 import datetime as dt
 
@@ -18,6 +18,25 @@ import datetime as dt
 BASE_URL = "https://www.jw.org"
 # Pattern pour extraire la durée brute entre parenthèses (ex: "(10 min.)")
 DURATION_RE = re.compile(r"\((\d+)\s*min\.?\)")
+
+# ── Session HTTP partagée (keep-alive) ──
+# curl_cffi Session n'est pas garanti thread-safe pour un usage concurrent :
+# on garde donc une session par thread (le ThreadPoolExecutor de scrape_week
+# réutilise un petit nombre de threads, donc peu de sessions créées au total).
+_thread_local = threading.local()
+
+
+def _get_session() -> req.Session:
+    """Retourne une session curl_cffi réutilisable, propre au thread courant.
+
+    Évite de renégocier une connexion TCP/TLS + fingerprint Chrome à chaque
+    requête HTTP, ce qui était le principal poste de latence de /parse.
+    """
+    session = getattr(_thread_local, "session", None)
+    if session is None:
+        session = req.Session(impersonate="chrome")
+        _thread_local.session = session
+    return session
 
 
 def resolve_url(url: str) -> str:
@@ -30,8 +49,10 @@ def resolve_url(url: str) -> str:
     Returns:
         str: URL finale après suivi des redirections.
     """
-    # Session avec impersonation Chrome pour contourner les WAF/blocages de sécurité
-    r = req.get(url, allow_redirects=True, impersonate="chrome", timeout=10)
+    # Session partagée (keep-alive) avec impersonation Chrome pour contourner
+    # les WAF/blocages de sécurité
+    session = _get_session()
+    r = session.get(url, allow_redirects=True, timeout=10)
 
     if r.redirect_url:
         return str(r.redirect_url)
@@ -126,7 +147,8 @@ def get_week_urls(index_url: str) -> list[str]:
         list[str]: Liste des URLs absolues des semaines, sans doublons.
     """
     print(f"Fetching index: {index_url}")
-    resp = requests.get(index_url, impersonate="chrome", timeout=15)
+    session = _get_session()
+    resp = session.get(index_url, timeout=15)
     if resp.status_code != 200:
         print(f"❌ HTTP {resp.status_code} on index")
         return []
@@ -161,7 +183,8 @@ def scrape_week(url: str) -> tuple[str, dict] | None:
         tuple[str, dict] | None: (week_key, {bible_reading, full_ordered_program}) ou None en cas d'erreur.
     """
     print(f"  Scraping: {url}")
-    resp = requests.get(url, impersonate="chrome", timeout=15)
+    session = _get_session()
+    resp = session.get(url, timeout=15)
     if resp.status_code != 200:
         print(f"  ❌ HTTP {resp.status_code}")
         return None

@@ -141,29 +141,56 @@ def _pdf_via_playwright(html: str, output_path: str) -> None:
     """
     Rendu PDF via Chromium headless (Playwright). Rendu CSS Grid/couleurs optimal.
     Installation : pip install playwright && python -m playwright install chromium
+
+    Usage CLI uniquement : lance un navigateur temporaire pour ce seul rendu.
+    Pour l'API (requêtes répétées), voir `render_pdf_async` qui réutilise un
+    navigateur déjà démarré.
     """
     from playwright.sync_api import sync_playwright  # type: ignore
 
-    with tempfile.NamedTemporaryFile(
-        suffix=".html", delete=False, mode="w", encoding="utf-8"
-    ) as tmp:
-        tmp.write(html)
-        tmp_path = Path(tmp.name)
-
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch()
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        try:
             page = browser.new_page()
-            page.goto(tmp_path.as_uri(), wait_until="networkidle")
+            page.set_content(html, wait_until="load")
             page.pdf(
                 path=output_path,
                 format="A4",
                 print_background=True,  # Indispensable pour les bandeaux colorés
                 margin={"top": "0", "bottom": "0", "left": "0", "right": "0"},
             )
+        finally:
             browser.close()
+
+
+async def render_pdf_async(browser, html: str) -> bytes:
+    """
+    Génère un PDF à partir du HTML avec un navigateur Playwright déjà lancé (async).
+
+    Pensé pour l'API : le navigateur est démarré une seule fois au démarrage du
+    serveur (voir lifespan dans api.py) et réutilisé pour chaque requête, ce qui
+    évite le coût de lancement de Chromium (~1-2s) à chaque appel. Le HTML est
+    injecté directement en mémoire via `set_content` (pas de fichier .html
+    temporaire) et le PDF est retourné en bytes (pas de fichier .pdf temporaire
+    non plus).
+
+    Args:
+        browser: Instance Playwright Browser (async_api), déjà lancée.
+        html: Contenu HTML à convertir.
+
+    Returns:
+        bytes: Contenu du PDF généré.
+    """
+    page = await browser.new_page()
+    try:
+        await page.set_content(html, wait_until="load")
+        return await page.pdf(
+            format="A4",
+            print_background=True,
+            margin={"top": "0", "bottom": "0", "left": "0", "right": "0"},
+        )
     finally:
-        tmp_path.unlink(missing_ok=True)
+        await page.close()
 
 
 def _pdf_via_wkhtmltopdf(html: str, output_path: str) -> None:
