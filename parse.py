@@ -230,8 +230,14 @@ def scrape_week(url: str) -> tuple[str, dict] | None:
         if tag.name == "h3" and tag.find_parent(class_="boxContent"):
             continue
 
-        # Ignorer les balises de navigation/pied de page
-        if any(kw in raw_lower for kw in ["tari-dalana", "loha hevitra", "hifidy fiteny", "hiverina", "manaraka"]):
+        # Ignorer les balises de navigation/pied de page.
+        # Ces mots-clés (ex: "hiverina" = "retour") désignent normalement des
+        # liens de nav courts et isolés. On limite donc le filtre aux textes
+        # courts pour éviter de rejeter un vrai titre de partie qui contient
+        # accidentellement un de ces mots dans une phrase plus longue
+        # (ex: "Ahoana no Atao Raha Te Hiverina?").
+        NAV_KEYWORDS = ["tari-dalana", "loha hevitra", "hifidy fiteny", "hiverina", "manaraka"]
+        if len(raw) < 20 and any(kw in raw_lower for kw in NAV_KEYWORDS):
             continue
 
         if tag.name == "h2":
