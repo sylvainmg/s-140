@@ -19,6 +19,42 @@ BASE_URL = "https://www.jw.org"
 # Pattern pour extraire la durée brute entre parenthèses (ex: "(10 min.)")
 DURATION_RE = re.compile(r"\((\d+)\s*min\.?\)")
 
+# Mois en malgache -> numéro, pour trier les semaines chronologiquement
+# à partir du slug d'URL (ex: ".../20-26-Jolay-2026/" -> (2026, 7, 20)).
+MALAGASY_MONTHS = {
+    "janoary": 1, "febroary": 2, "martsa": 3, "aprily": 4,
+    "mey": 5, "jona": 6, "jolay": 7, "aogositra": 8,
+    "septambra": 9, "oktobra": 10, "novambra": 11, "desambra": 12,
+}
+
+# Extrait "jour_debut-jour_fin-MoisMalgache-annee" en fin d'URL de semaine.
+_WEEK_DATE_RE = re.compile(r"(\d{1,2})-(\d{1,2})-([A-Za-z]+)-(\d{4})/?$")
+
+
+def _week_sort_key(url: str) -> tuple[int, int, int]:
+    """
+    Construit une clé de tri chronologique (année, mois, jour) à partir du
+    slug d'URL d'une semaine.
+
+    Nécessaire car l'ordre des liens sur la page index jw.org n'est pas
+    fiable (la semaine en cours peut être mise en avant hors ordre).
+
+    Args:
+        url: URL de la page hebdomadaire.
+
+    Returns:
+        tuple[int, int, int]: (année, mois, jour de début). Renvoie une clé
+        très grande si le format n'est pas reconnu, pour pousser l'URL en
+        fin de liste plutôt que de planter le tri.
+    """
+    m = _WEEK_DATE_RE.search(url)
+    if not m:
+        return (9999, 99, 99)
+    start_day = int(m.group(1))
+    month_num = MALAGASY_MONTHS.get(m.group(3).lower(), 99)
+    year = int(m.group(4))
+    return (year, month_num, start_day)
+
 # ── Session HTTP partagée (keep-alive) ──
 # curl_cffi Session n'est pas garanti thread-safe pour un usage concurrent :
 # on garde donc une session par thread (le ThreadPoolExecutor de scrape_week
@@ -169,6 +205,7 @@ def get_week_urls(index_url: str) -> list[str]:
                 week_urls.append(full)
 
     print(f"Found {len(week_urls)} week(s).")
+    week_urls.sort(key=_week_sort_key)
     return week_urls
 
 
