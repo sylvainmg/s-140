@@ -27,34 +27,14 @@ MALAGASY_MONTHS = {
     "septambra": 9, "oktobra": 10, "novambra": 11, "desambra": 12,
 }
 
-# Extrait "jour_debut-jour_fin-MoisMalgache-annee" en fin d'URL de semaine.
-_WEEK_DATE_RE = re.compile(r"(\d{1,2})-(\d{1,2})-([A-Za-z]+)-(\d{4})/?$")
-
-
 def _week_sort_key(url: str) -> tuple[int, int, int]:
-    """
-    Construit une clé de tri chronologique (année, mois, jour) à partir du
-    slug d'URL d'une semaine.
-
-    Nécessaire car l'ordre des liens sur la page index jw.org n'est pas
-    fiable (la semaine en cours peut être mise en avant hors ordre).
-
-    Args:
-        url: URL de la page hebdomadaire.
-
-    Returns:
-        tuple[int, int, int]: (année, mois, jour de début). Renvoie une clé
-        très grande si le format n'est pas reconnu, pour pousser l'URL en
-        fin de liste plutôt que de planter le tri.
-    """
-    m = _WEEK_DATE_RE.search(url)
-    if not m:
-        return (9999, 99, 99)
-    start_day = int(m.group(1))
-    month_num = MALAGASY_MONTHS.get(m.group(3).lower(), 99)
-    year = int(m.group(4))
-    return (year, month_num, start_day)
-
+    slug = url.rstrip('/').split('/')[-1].lower()
+    parts = slug.split('-')
+    for i, p in enumerate(parts):
+        if p.isdigit() and i + 1 < len(parts) and parts[i+1] in MALAGASY_MONTHS:
+            return (int(parts[-1]) if parts[-1].isdigit() else 9999,
+                    MALAGASY_MONTHS[parts[i+1]], int(p))
+    return (9999, 99, 99)
 # ── Session HTTP partagée (keep-alive) ──
 # curl_cffi Session n'est pas garanti thread-safe pour un usage concurrent :
 # on garde donc une session par thread (le ThreadPoolExecutor de scrape_week
