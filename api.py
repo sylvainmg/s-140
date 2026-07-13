@@ -81,6 +81,7 @@ class RenderRequest(BaseModel):
     assignments: dict = {}  # optionnel
     church_name: str = "[ANARAN'NY FIANGONANA]"
     month_label: str = ""
+    week_order: list = []  # ordre chronologique des weekKeys
 
 
 # ---------------------------------------------------------------------------
@@ -159,8 +160,13 @@ def parse(req: ParseRequest):
 
 @app.post("/render")
 async def render(req: RenderRequest):
+    # Respecter l ordre chronologique envoyé par le client
+    ordered_keys = req.week_order if req.week_order else list(req.program.keys())
     weeks: list[dict] = []
-    for date_range, content in req.program.items():
+    for date_range in ordered_keys:
+        if date_range not in req.program:
+            continue
+        content = req.program[date_range]
         weeks.append(
             {
                 "date_range": date_range,
